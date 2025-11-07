@@ -32,6 +32,7 @@ export class AppComponent {
   readonly query = signal('');
   readonly currentPage = signal(1);
   readonly itemsPerPage = signal(24);
+  readonly viewingImage = signal<SummaryItem | null>(null);
 
   readonly filtered = computed(() => {
     const q = this.query().toLowerCase().trim();
@@ -64,8 +65,32 @@ export class AppComponent {
     return { start, end, total: filtered.length };
   });
 
+  readonly canNavigatePrev = computed(() => {
+    const current = this.viewingImage();
+    if (!current) return false;
+    const filtered = this.filtered();
+    const currentIndex = filtered.findIndex(i => i.id === current.id);
+    return currentIndex > 0;
+  });
+
+  readonly canNavigateNext = computed(() => {
+    const current = this.viewingImage();
+    if (!current) return false;
+    const filtered = this.filtered();
+    const currentIndex = filtered.findIndex(i => i.id === current.id);
+    return currentIndex < filtered.length - 1;
+  });
+
   constructor() {
     this.load();
+    // Listen for ESC key to close viewer
+    if (typeof window !== 'undefined') {
+      window.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && this.viewingImage()) {
+          this.closeViewer();
+        }
+      });
+    }
   }
 
   onQueryInput(event: Event) {
@@ -126,6 +151,38 @@ export class AppComponent {
     }
     
     return pages;
+  }
+
+  openViewer(item: SummaryItem) {
+    this.viewingImage.set(item);
+    // Prevent body scroll when viewer is open
+    document.body.style.overflow = 'hidden';
+  }
+
+  closeViewer() {
+    this.viewingImage.set(null);
+    // Restore body scroll
+    document.body.style.overflow = '';
+  }
+
+  getImageUrl(item: SummaryItem): string {
+    return item.image_filename 
+      ? `assets/downloads/images/${item.image_filename}`
+      : (item.image_url || '');
+  }
+
+  navigateViewer(direction: 'prev' | 'next') {
+    const current = this.viewingImage();
+    if (!current) return;
+
+    const filtered = this.filtered();
+    const currentIndex = filtered.findIndex(i => i.id === current.id);
+    
+    if (direction === 'prev' && currentIndex > 0) {
+      this.viewingImage.set(filtered[currentIndex - 1]);
+    } else if (direction === 'next' && currentIndex < filtered.length - 1) {
+      this.viewingImage.set(filtered[currentIndex + 1]);
+    }
   }
 
   private async load() {
