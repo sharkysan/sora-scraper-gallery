@@ -32,3 +32,13 @@ Thumbs.db
 playwright-report/
 test-results/
 
+# Angular / Node.js
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.angular/
+dist/
+out-tsc/
+*.tsbuildinfo
+
