@@ -30,18 +30,102 @@ export class AppComponent {
   readonly error = signal<string | null>(null);
   readonly items = signal<SummaryItem[]>([]);
   readonly query = signal('');
-  readonly limit = signal(50);
+  readonly currentPage = signal(1);
+  readonly itemsPerPage = signal(24);
 
   readonly filtered = computed(() => {
     const q = this.query().toLowerCase().trim();
-    const base = q
+    return q
       ? this.items().filter(i => (i.prompt || '').toLowerCase().includes(q))
       : this.items();
-    return base.slice(0, this.limit());
+  });
+
+  readonly paginated = computed(() => {
+    const filtered = this.filtered();
+    const page = this.currentPage();
+    const perPage = this.itemsPerPage();
+    const start = (page - 1) * perPage;
+    const end = start + perPage;
+    return filtered.slice(start, end);
+  });
+
+  readonly totalPages = computed(() => {
+    const filtered = this.filtered();
+    const perPage = this.itemsPerPage();
+    return Math.ceil(filtered.length / perPage);
+  });
+
+  readonly pageInfo = computed(() => {
+    const filtered = this.filtered();
+    const page = this.currentPage();
+    const perPage = this.itemsPerPage();
+    const start = (page - 1) * perPage + 1;
+    const end = Math.min(page * perPage, filtered.length);
+    return { start, end, total: filtered.length };
   });
 
   constructor() {
     this.load();
+  }
+
+  onQueryInput(event: Event) {
+    const target = event.target as HTMLInputElement;
+    this.query.set(target.value);
+    this.currentPage.set(1); // Reset to first page on search
+  }
+
+  onItemsPerPageChange(event: Event) {
+    const target = event.target as HTMLSelectElement;
+    this.itemsPerPage.set(+target.value);
+    this.currentPage.set(1); // Reset to first page
+  }
+
+  goToPage(page: number) {
+    const total = this.totalPages();
+    if (page >= 1 && page <= total) {
+      this.currentPage.set(page);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  }
+
+  previousPage() {
+    const current = this.currentPage();
+    if (current > 1) {
+      this.goToPage(current - 1);
+    }
+  }
+
+  nextPage() {
+    const current = this.currentPage();
+    const total = this.totalPages();
+    if (current < total) {
+      this.goToPage(current + 1);
+    }
+  }
+
+  getPageNumbers(): number[] {
+    const current = this.currentPage();
+    const total = this.totalPages();
+    const pages: number[] = [];
+    
+    // Show max 7 page numbers
+    let start = Math.max(1, current - 3);
+    let end = Math.min(total, current + 3);
+    
+    // Adjust if we're near the start or end
+    if (end - start < 6) {
+      if (start === 1) {
+        end = Math.min(total, 7);
+      } else if (end === total) {
+        start = Math.max(1, total - 6);
+      }
+    }
+    
+    for (let i = start; i <= end; i++) {
+      pages.push(i);
+    }
+    
+    return pages;
   }
 
   private async load() {
